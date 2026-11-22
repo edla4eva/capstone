@@ -1,132 +1,115 @@
-# Classify Healthcare SMS by Urgency
+# Administrative Document Classification with Gemma
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aims-ai-research-foundations/airf-capstone-project-recipes/blob/main/projects/healthcare-sms-urgency/notebook.ipynb)
-[![View on GitHub](https://img.shields.io/badge/View%20on-GitHub-black?logo=github)](https://github.com/aims-ai-research-foundations/airf-capstone-project-recipes/blob/main/projects/healthcare-sms-urgency/notebook.ipynb)
-[![Dataset](https://img.shields.io/badge/Dataset-Hugging%20Face-yellow?logo=huggingface)](https://huggingface.co/datasets/Similoluwa/capstone-datasets/viewer/healthcare_sms_urgency)
+This project fine-tunes Gemma 2 2B to classify administrative documents and extract structured metadata from their text.
 
-**Project Category:** Classification
+**Project category:** Classification and information extraction
 
-**Model:** Gemma 1B
+**Base model:** `google/gemma-2-2b-it`
 
-**Fine-tuning:** QLoRA
+**Fine-tuning:** LoRA/SFT with Hugging Face Transformers and TRL
 
-**Recommended GPU:** NVIDIA T4, 16 GB VRAM (free Google Colab)
+**Recommended environment:** Google Colab with a GPU
 
-## 🎯 The Problem
+## Problem
 
-Health hotlines and SMS services receive many messages, and urgent ones can wait too long before a person reads them.
+Administrative documents use many formats and serve many purposes. Processing them manually can make it difficult to identify a document's type, purpose, key dates, responsible office, and other important fields consistently.
 
-## 💡 The Solution
+## Solution
 
-A language model that classifies health messages by urgency so human responders review the most urgent first, compared with triage nurses.
+The system accepts a document text prompt and uses a fine-tuned language model to determine:
 
-## 👥 Who is this for?
+- Document format or genre
+- Administrative purpose or action
+- Available extracted fields, including title or subject, date, sender, recipient, reference number, required action, deadline, and responsible person or office
 
-- Health hotline and mHealth teams, such as maternal-health SMS services
-- Triage nurses and emergency responders
-- Researchers in clinical NLP
+For scanned or photographed documents, OCR or another text-extraction process should be applied before classification.
 
-## 🔬 Research Question
+## Supported categories
 
-> When the costliest error is missing an emergency, does fine-tuning a small language model bring it closer to triage nurses than zero-shot prompting?
+**Document formats:** letter, memo, notice, circular, email, and article.
 
-## 📊 Data Card
+**Administrative purposes:** request for approval, notice of approval, appointment, recommendation, event invitation, leave request, sick leave, maternity leave, posting, query, petition, report, minutes of meeting, admission letter, and promotion letter.
 
-### Input versus output
+An `other/unclear` label is used for unsupported or ambiguous documents. Urgency is represented separately through dates, deadlines, and time-to-event rather than as a document type.
 
-The system processes digital documents and document images, including scanned or photographed pages, email content, and document attachments. Target materials include letters, memos, notices, circulars, emails, and articles. OCR or an equivalent text-extraction process is used to obtain machine-readable text from image-based or scanned inputs.
+## Dataset
 
-Outputs include a document classification and, where available, extracted fields: title or heading, subject, date, sender, recipient, reference number, main body text, deadline, and required action. Information that is absent or unreadable is not inferred.
+The dataset combines synthetic administrative documents with authentic academic administration documents.
 
-### Classification problem
+- Real examples must be authorized and redacted before inclusion.
+- Synthetic examples add variation in wording, structure, format, and layout.
+- Each record is identified by source type.
+- Incomplete or unreadable fields are marked unknown rather than inferred.
 
-Classification covers two distinct but related dimensions:
+See [DATASET_CARD.md](DATASET_CARD.md) for the complete data card.
 
-- **Document format or genre:** letter, memo, notice, circular, email, or article.
-- **Administrative purpose or action:** request for approval, notice of approval, appointment, recommendation, event invitation, leave request, sick leave, maternity leave, posting, query, petition, report, minutes of meeting, admission letter, or promotion letter.
+## Evaluation
 
-An `other/unclear` label is available for unsupported or ambiguous examples. Where a document reasonably fits more than one purpose, annotations may use multiple labels or primary and secondary labels. Urgency is represented separately using dates, deadlines, and time-to-event; it is not treated as a document type.
+The notebook evaluates predictions against both document-format and administrative-purpose labels for authentic documents. It should report:
 
-### Labeling
+- Document-format accuracy
+- Administrative-purpose accuracy
+- Classification output for representative examples
 
-Each item is annotated for document format or genre and administrative purpose or action. Where appropriate, annotations also capture title, subject, date, sender, recipient, reference number, body text, required action, deadline, event date, and responsible person or office. Urgency or time-to-event is derived from reliable dates where possible and marked unknown when information is absent or unclear. Consistent labeling definitions and review procedures are used.
+Ambiguous, unsupported, or OCR-impaired examples should not be counted as successfully extracted without considering their uncertainty.
 
-### Data creation
+## Getting started
 
-The dataset combines real-world and synthetic documents. Real examples may include publicly accessible institutional documents and university-related communications that the team is authorized to use. Synthetic examples represent the target categories with variation in wording, structure, format, and layout. Each record is identified by source type so real and synthetic examples can be monitored separately. Approved real documents are redacted before inclusion in the training dataset, and source and provenance information is recorded for collected items.
+1. Open `Capstone.ipynb` in Google Colab.
+2. Mount Google Drive if you are using the workbook paths configured in the notebook.
+3. Enable a GPU runtime.
+4. Install the notebook dependencies.
+5. Add the synthetic and authentic document datasets to the configured data directory.
+6. Run the notebook from top to bottom.
 
-## 📏 Evaluation
+The repository also includes a fine-tuned LoRA adapter in `gemma-instruction-adapter/`.
 
-**Macro-F1:** Measures overall performance across the three classes with equal weight.
+## Export and run the full model
 
-**Emergency recall:** Measures the share of true emergencies the model flags; the headline metric, because a missed emergency is the costliest error.
+The adapter in `gemma-instruction-adapter/` is a LoRA adapter, not a standalone model. Use [inference_colab.ipynb](inference_colab.ipynb) to load it, merge it into the Gemma base model, and upload the full model to a Hugging Face model repository. The exporter creates a private repository by default and requires a Hugging Face token with write access.
 
-**Confusion Matrix:** Measures under-triage (emergencies marked routine) against over-triage.
+After exporting, use [inference_huggingface_colab.ipynb](inference_huggingface_colab.ipynb) to load the full model directly from Hugging Face and run inference. A read token is needed for private repositories; public access must comply with the applicable Gemma terms.
 
-## 🧠 What You'll Learn
+## Load the adapter directly
 
-- Perform zero-shot urgency classification with a language model
-- Fine-tune Gemma with QLoRA on labelled triage messages
-- Evaluate a safety-critical classifier by the recall of its most important class
-- Compare a model with a human (triage nurse) reference
+For applications that prefer using the adapter without exporting a merged model:
 
-## 🚀 Getting Started
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-1. Open `notebook.ipynb`.
-2. Open the notebook in Google Colab.
-3. Enable a GPU if required.
-4. Follow the setup instructions in the notebook.
-5. Run the notebook from beginning to end.
+base_model_name = "google/gemma-2-2b-it"
+adapter_repo = "Preciousunoka/gemma-finetuned"
 
-To see every output before you run it, open the [completed run](../../completed/healthcare-sms-urgency.ipynb) of this notebook.
+tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+base_model = AutoModelForCausalLM.from_pretrained(
+    base_model_name,
+    device_map="auto",
+)
+model = PeftModel.from_pretrained(base_model, adapter_repo)
+```
 
-## 🔭 Go Further
+## Example adapter usage
 
-- Make the model more cautious, for example by weighting emergency examples in training or asking it to choose emergency when unsure
-- Compare with Gemma 4B, zero-shot and few-shot
-- Translate messages into a local language with native-speaker review and re-evaluate
-- Build a triage queue that sorts incoming messages for a nurse, most urgent first, and measure how long emergencies wait
+```python
+prompt = """Analyze the document below and fill in the classification metadata.
 
-## ❓ Frequently Asked Questions
+Document text:
+All faculty members are requested to attend the sensitization program in the main auditorium this Thursday at 10:00 AM.
 
-<details>
-<summary>What is the Gemma 3 1B model?</summary>
+Document Format:
+Administrative Purpose:
+"""
 
-Gemma 3 1B is a small open-weight language model from Google with 1 billion parameters and a 32K-token context window, trained on 2 trillion tokens covering more than 140 languages. It is small enough to run and fine-tune on a free Colab T4 GPU, which makes it a good starting point for experiments.
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+outputs = model.generate(**inputs, max_new_tokens=200)
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
 
-[Gemma 3 model card](https://ai.google.dev/gemma/docs/core/model_card_3) · [google/gemma-3-1b-it](https://huggingface.co/google/gemma-3-1b-it)
+## Repository files
 
-</details>
-
-<details>
-<summary>What is zero-shot prompting?</summary>
-
-Zero-shot prompting asks a model to do a task from instructions alone, without any labelled training examples. Here we describe the task and the allowed answers in the prompt, then map the model's reply to a label.
-
-[Prompt Engineering Guide: zero-shot prompting](https://www.promptingguide.ai/techniques/zeroshot)
-
-</details>
-
-<details>
-<summary>What is QLoRA and why do we use it?</summary>
-
-QLoRA loads the base model in 4-bit precision and trains only small low-rank adapter (LoRA) matrices added to it. Memory use drops enough to fine-tune a language model on a single free T4 GPU, while keeping quality close to full fine-tuning.
-
-[QLoRA paper](https://arxiv.org/abs/2305.14314) · [Hugging Face PEFT](https://huggingface.co/docs/peft/index) · [TRL SFTTrainer](https://huggingface.co/docs/trl/sft_trainer)
-
-</details>
-
-<details>
-<summary>How can I deploy this project?</summary>
-
-Only as a decision-support tool: for example, a Gradio app or API that orders incoming messages for a human responder, who reads every message. Before any real use, it needs evaluation on local messages, clinical review and approval from the responsible health authority.
-
-[Gradio quickstart](https://www.gradio.app/guides/quickstart) · [Hugging Face Spaces](https://huggingface.co/docs/hub/spaces-overview)
-
-</details>
-
-## 📚 References
-
-1. Moon et al. (2019). Triage accuracy and causes of mistriage using the Korean Triage and Acuity Scale. PLOS ONE. https://doi.org/10.1371/journal.pone.0216972
-2. Gemma Team, Google DeepMind (2025). Gemma 3 Technical Report. https://arxiv.org/abs/2503.19786
-3. IDinsight. Enhancing Maternal Healthcare: Training Language Models to Identify Urgent Messages in Real-Time. https://idinsight.github.io/tech-blog/blog/enhancing_maternal_healthcare/
+- `Capstone.ipynb` - primary fine-tuning and evaluation notebook
+- `DATASET_CARD.md` - dataset scope, labels, creation process, and limitations
+- `gemma-instruction-adapter/` - trained LoRA adapter and tokenizer files
+- `inference_colab.ipynb` - merge the adapter and export the full model to Hugging Face
+- `inference_huggingface_colab.ipynb` - run inference using the full Hugging Face model
